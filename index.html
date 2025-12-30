@@ -153,6 +153,11 @@ body{
   <button class="btn btn-success w-100 mb-2" onclick="shareWhatsApp()">📲 Share on WhatsApp</button>
   <button class="btn btn-secondary w-100 mb-2" onclick="window.print()">🖨️ Print Bill</button>
   <button class="btn btn-outline-dark w-100" onclick="downloadPDF()">⬇️ Download PDF</button>
+  <button class="btn btn-primary w-100 mb-2 no-print"
+  onclick="manualSaveBill()">
+  💾 Save Bill
+</button>
+
 
 
 </div>
@@ -719,6 +724,17 @@ function reindexRows() {
   document.querySelectorAll("#billBody tr").forEach((tr, index) => {
     tr.querySelector("td").innerText = index + 1;
   });
+}
+function manualSaveBill() {
+  if (document.querySelectorAll("#billBody tr").length === 0) {
+    alert("No items in bill");
+    return;
+  }
+
+  saveBill();           // 🔥 same function reuse
+  renderBillHistoryByDate();
+
+  alert("Bill saved without PDF ✅");
 }
 
 
