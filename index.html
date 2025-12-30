@@ -199,9 +199,49 @@ body{
 </div>
 
 <script>
+
+  const ADMIN_PIN = "6267";
+const ADMIN_GATE_KEY = "admin_gate_passed";
+
+(function adminGate() {
+
+  // Agar pehle se admin verify ho chuka hai → skip
+  if (localStorage.getItem(ADMIN_GATE_KEY) === "true") {
+    return;
+  }
+
+  while (true) {
+    const entered = prompt("Enter ADMIN PIN");
+
+    // cancel dabaya
+    if (entered === null) {
+      document.body.innerHTML = `
+        <h2 style="text-align:center;margin-top:40px;color:red">
+          Access Denied
+        </h2>`;
+      return;
+    }
+
+    // correct pin
+    if (entered === ADMIN_PIN) {
+      localStorage.setItem(ADMIN_GATE_KEY, "true");
+      alert("Admin Verified ✅");
+      break; // normal app flow start
+    }
+
+    // wrong pin
+    alert("❌ Wrong Admin PIN\nAccess Denied");
+    // loop chalega → dobara prompt
+  }
+
+})();
+
+
   const USER_KEY = "billing_user";
 
   const APP_PIN_KEY = "billing-app-pin";
+
+  
 
  
 /* ===== BENGALI FONT BASE64 ===== */
@@ -541,6 +581,7 @@ function getTodaySummary() {
 
   return { totalSale, totalEarn };
 }
+
 
 (function pinCheck() {
   let pin = localStorage.getItem(APP_PIN_KEY);
