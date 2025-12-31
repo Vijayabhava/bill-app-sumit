@@ -175,6 +175,8 @@ body{
 <hr class="my-4">
 
 <div class="no-print">
+
+  <!-- ================= DAY WISE ================= -->
   <h5>📜 Bill History (Day Wise)</h5>
 
   <div class="row g-2 mb-2">
@@ -197,7 +199,59 @@ body{
     </div>
   </div>
 
-  <div id="billHistory" class="table-responsive"></div>
+  <div id="billHistory" class="table-responsive mb-4"></div>
+
+
+  <!-- ================= MONTHLY SUMMARY ================= -->
+  <h5 class="mt-4">📊 Monthly Summary</h5>
+
+  <div class="row g-2 mb-2">
+    <div class="col-md-4">
+      <input type="month" id="monthPicker" class="form-control"
+        onchange="renderMonthlySummary()">
+    </div>
+  </div>
+
+  <div class="row g-2 mb-4">
+    <div class="col-md-6">
+      <div class="p-2 bg-light rounded">
+        <b>Total Sale:</b> ₹ <span id="monthTotalSale">0</span>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="p-2 bg-light rounded">
+        <b>Total Earn:</b> ₹ <span id="monthTotalEarn">0</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ================= CUSTOMER HISTORY ================= -->
+  <h5 class="mt-4">👤 Customer History (By Mobile)</h5>
+
+  <div class="row g-2 mb-2">
+    <div class="col-md-4">
+      <input id="searchPhone" class="form-control"
+        placeholder="Enter mobile number"
+        oninput="renderCustomerHistory()">
+    </div>
+  </div>
+
+  <div id="customerHistory" class="table-responsive"></div>
+
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-md-6">
+    <div class="p-2 bg-light rounded">
+      <b>Lifetime Purchase:</b> ₹ <span id="customerLifetimeTotal">0</span>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="p-2 bg-light rounded">
+      <b>Total Bills:</b> <span id="customerTotalBills">0</span>
+    </div>
+  </div>
 </div>
 
 
@@ -531,7 +585,7 @@ function downloadPDF() {
     { align: "center" }
   );
 
-saveBill();
+
   doc.save(`Invoice-${invoiceNumber}.pdf`);
  
 
@@ -678,6 +732,8 @@ function renderBillHistoryByDate() {
 <th>Total</th>
 <th>Paid</th>
 <th>View</th>
+<th>PDF</th>
+
 <th>❌</th>
 
 
@@ -700,10 +756,15 @@ html += `
   <td>${bill.customer}</td>
   <td>₹ ${bill.total}</td>
   <td>₹ ${bill.paid}</td>
-  <td>
-    <button class="btn btn-sm btn-outline-primary"
-      onclick='viewBill("${bill.invoice}")'>👁️</button>
-  </td>
+ <td>
+  <button class="btn btn-sm btn-outline-primary"
+    onclick='viewBill("${bill.invoice}")'>👁️</button>
+</td>
+<td>
+  <button class="btn btn-sm btn-outline-success"
+    onclick='downloadSavedPDF("${bill.invoice}")'>⬇️</button>
+</td>
+
   <td>
     <button class="btn btn-sm btn-outline-danger"
       onclick='deleteBill("${bill.invoice}")'>❌</button>
@@ -785,7 +846,9 @@ function manualSaveBill() {
     return;
   }
 
-  saveBill();           // 🔥 same function reuse
+  saveBill();  
+  resetInvoiceForm();
+         // 🔥 same function reuse
   renderBillHistoryByDate();
 
   alert("Bill saved without PDF ✅");
@@ -863,6 +926,213 @@ async function restoreFromDrive() {
 
   alert("✅ Data restored successfully");
   location.reload();
+}
+
+function resetInvoiceForm() {
+  // clear customer info
+  customerName.value = "";
+  customerPhone.value = "";
+  paidAmount.value = "";
+  balanceText.innerText = "₹0";
+
+  // clear table
+  billBody.innerHTML = "";
+  rowCount = 0;
+
+  // new invoice + date
+  const d = new Date();
+  invoiceDate.value = d.toLocaleDateString("en-GB");
+  invoiceNumber =
+    `INV-${d.getFullYear()}${d.getMonth()+1}${d.getDate()}-${Math.floor(Math.random()*1000)}`;
+  invoiceNo.value = invoiceNumber;
+
+  // add fresh empty row
+  addRow();
+}
+
+function downloadSavedPDF(invoiceNo) {
+  const history = JSON.parse(localStorage.getItem(BILL_HISTORY_KEY) || "[]");
+  const bill = history.find(b => b.invoice === invoiceNo);
+  if (!bill) {
+    alert("Bill not found");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("p", "mm", "a4");
+
+  let y = 15;
+
+  /* ===== HEADER ===== */
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("BILLING INVOICE", 105, y, { align: "center" });
+
+  y += 10;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Invoice No : ${bill.invoice}`, 14, y);
+  doc.text(`Date : ${bill.date}`, 150, y);
+
+  y += 6;
+  doc.text(`Customer Name : ${bill.customer || "-"}`, 14, y);
+  doc.text(`Phone : ${bill.phone || "-"}`, 150, y);
+
+  /* ===== LINE ===== */
+  y += 6;
+  doc.line(14, y, 195, y);
+
+  /* ===== TABLE HEADER ===== */
+  y += 8;
+  doc.setFont("helvetica", "bold");
+  doc.text("No", 14, y);
+  doc.text("Product", 28, y);
+  doc.text("Amount", 165, y);
+
+  y += 3;
+  doc.line(14, y, 195, y);
+
+  /* ===== TABLE BODY ===== */
+  y += 7;
+  doc.setFont("helvetica", "normal");
+
+  bill.items.forEach((item, i) => {
+    doc.text(String(i + 1), 14, y);
+    doc.text(item.product || "-", 28, y);
+    doc.text(`₹ ${item.amount}`, 165, y);
+    y += 7;
+  });
+
+  /* ===== SUMMARY ===== */
+  y += 5;
+  doc.line(120, y, 195, y);
+
+  y += 8;
+  doc.setFont("helvetica", "bold");
+  doc.text(`Total Amount : ₹ ${bill.total}`, 120, y);
+
+  y += 7;
+  doc.setFont("helvetica", "normal");
+  doc.text(`Paid Amount  : ₹ ${bill.paid}`, 120, y);
+
+  y += 7;
+  doc.setFont("helvetica", "bold");
+  const balance = bill.paid - bill.total;
+  doc.text(
+    balance > 0
+      ? `Return ₹ ${balance.toFixed(2)}`
+      : balance < 0
+      ? `Due ₹ ${Math.abs(balance).toFixed(2)}`
+      : "₹ 0",
+    120,
+    y
+  );
+
+  /* ===== SIGNATURE ===== */
+  y += 20;
+  doc.setFont("helvetica", "normal");
+  doc.text("Authorized Signature", 140, y);
+  doc.rect(135, y + 3, 50, 22);
+  doc.setFontSize(8);
+  doc.text("(Sign here)", 152, y + 17);
+
+  /* ===== FOOTER ===== */
+  doc.setFontSize(9);
+  doc.text(
+    "Thank you for your business!",
+    105,
+    285,
+    { align: "center" }
+  );
+
+  doc.save(`Invoice-${bill.invoice}.pdf`);
+}
+
+function renderMonthlySummary() {
+  const history = JSON.parse(localStorage.getItem(BILL_HISTORY_KEY) || "[]");
+  const monthInput = document.getElementById("monthPicker").value;
+  if (!monthInput) return;
+
+  let totalSale = 0;
+  let totalEarn = 0;
+
+  history.forEach(bill => {
+    const billDate = new Date(bill.date.split("/").reverse().join("-"));
+    const billMonth = billDate.toISOString().slice(0, 7);
+
+    if (billMonth === monthInput) {
+      totalSale += bill.total;
+      totalEarn += bill.paid;
+    }
+  });
+
+  document.getElementById("monthTotalSale").innerText = totalSale.toFixed(2);
+  document.getElementById("monthTotalEarn").innerText = totalEarn.toFixed(2);
+}
+
+function renderCustomerHistory() {
+  const phone = document.getElementById("searchPhone").value.trim();
+  const container = document.getElementById("customerHistory");
+
+  if (phone.length < 5) {
+    container.innerHTML = "";
+    document.getElementById("customerLifetimeTotal").innerText = "0";
+    document.getElementById("customerTotalBills").innerText = "0";
+    return;
+  }
+
+  const history = JSON.parse(localStorage.getItem(BILL_HISTORY_KEY) || "[]");
+
+  let totalPurchase = 0;
+  let totalBills = 0;
+
+  let html = `
+    <table class="table table-sm table-bordered">
+      <thead class="table-light">
+        <tr>
+          <th>Date</th>
+          <th>Invoice</th>
+          <th>Total</th>
+          <th>Paid</th>
+          <th>PDF</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  history.forEach(bill => {
+    if (bill.phone && bill.phone.includes(phone)) {
+      totalBills++;
+      totalPurchase += bill.total;
+
+      html += `
+        <tr>
+          <td>${bill.date}</td>
+          <td>${bill.invoice}</td>
+          <td>₹ ${bill.total}</td>
+          <td>₹ ${bill.paid}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-success"
+              onclick="downloadSavedPDF('${bill.invoice}')">⬇️</button>
+          </td>
+        </tr>
+      `;
+    }
+  });
+
+  html += "</tbody></table>";
+
+  if (totalBills === 0) {
+    container.innerHTML = "<p class='text-muted'>No records found</p>";
+  } else {
+    container.innerHTML = html;
+  }
+
+  document.getElementById("customerLifetimeTotal").innerText =
+    totalPurchase.toFixed(2);
+
+  document.getElementById("customerTotalBills").innerText =
+    totalBills;
 }
 
 
